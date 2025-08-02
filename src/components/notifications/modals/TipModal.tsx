@@ -4,8 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, DollarSign, TrendingUp, Zap } from "lucide-react";
-import { useEffect, useState } from "react";
+import { WalletContext } from "@/components/layout/Header";
+import { fetchTokenList, fetchWalletBalances, Token } from "@/lib/oneinch";
+import { Clock, DollarSign, TrendingUp, Zap, RefreshCw } from "lucide-react";
+import { useContext, useEffect, useRef, useState } from "react";
 
 interface TipModalProps {
   isOpen: boolean;
@@ -21,79 +23,103 @@ interface TipModalProps {
   };
 }
 
-interface Token {
-  symbol: string;
-  address: string;
-  decimals: number;
-  logoURI: string;
-  price: string;
-  // add other fields if needed
-}
+// Token interface is imported from 1inch module
 
 export const TipModal = ({ isOpen, onClose, creator, content }: TipModalProps) => {
-  // Remove backend token/balance logic
-  // const [tokenList, setTokenList] = useState<Token[]>([]);
-  // const [walletBalances, setWalletBalances] = useState<Record<string, any>>({});
-  const [selectedToken, setSelectedToken] = useState("USDC");
+  const [tokenList, setTokenList] = useState<Token[]>([]);
+  const [walletBalances, setWalletBalances] = useState<Record<string, any>>({});
+  const [selectedToken, setSelectedToken] = useState("");
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
-  // const { address: walletAddress, chainId } = useContext(WalletContext);
-
-  // Use static tokens for demo/frontend
-  const tokenList: Token[] = [
-    {
-      symbol: "USDC",
-      address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-      decimals: 6,
-      logoURI: "https://tokens.1inch.io/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png",
-      price: "1.00"
-    },
-    {
-      symbol: "ETH",
-      address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-      decimals: 18,
-      logoURI: "https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png",
-      price: "3500.00"
-    }
-  ];
-
-  // Use static balances for demo/frontend
-  const walletBalances: Record<string, any> = {
-    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": { balance: "10000000" }, // 10 USDC
-    "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": { balance: "1000000000000000000" } // 1 ETH
-  };
-
-  // Remove all backend-related imports and logic
-  // import { fetchWalletBalances, fetchTokenList } from "../../lib/fetchTokenDetails";
+  const { address: walletAddress, chainId } = useContext(WalletContext);
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch tokens and balances
+  const loadData = async (showLoading = true) => {
+    if (!walletAddress) return;
+
+    try {
+      // Show loading state only for initial load
+      if (showLoading) {
+        setTokenList([]);
+        setWalletBalances({});
+      }
+      
+      const [tokens, balances] = await Promise.all([
+        fetchTokenList(chainId),
+        fetchWalletBalances(walletAddress, chainId),
+      ]);
+      
+      setTokenList(tokens);
+      setWalletBalances(balances.reduce((acc: Record<string, any>, balance: any) => {
+        acc[balance.token.address] = {
+          balance: balance.balance,
+          token: balance.token
+        };
+        return acc;
+      }, {}));
+      
+      // Auto-select the most abundant token only if none is selected
+      if ((!selectedToken || selectedToken === "") && balances.length > 0) {
+        // Sort by value (highest first) and select the top token
+        const sortedBalances = [...balances].sort((a, b) => b.value - a.value);
+        if (sortedBalances[0].value > 0) {
+          const topToken = tokens.find(t => t.address === sortedBalances[0].token.address);
+          if (topToken) {
+            setSelectedToken(topToken.symbol);
+          }
+        }
+      }
+    } catch (error) {
+      // Only show error toast for initial load, not for periodic refreshes
+      if (showLoading) {
+        setTokenList([]);
+        setWalletBalances({});
+        toast({
+          title: "Error",
+          description: "Failed to fetch token list or balances.",
+          variant: "destructive",
+        });
+      }
+      console.error("Error fetching token data", error);
+    }
+  };
+
+  // Initial load when modal opens
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !walletAddress) return;
 
-    // const loadData = async () => {
-    //   try {
-    //     const [tokens, balances] = await Promise.all([
-    //       fetchTokenList(chainId),
-    //       fetchWalletBalances(walletAddress, chainId),
-    //     ]);
-    //     setTokenList(tokens as Token[]);
-    //     setWalletBalances(balances);
-    //     if ((tokens as Token[]).length > 0) setSelectedToken((tokens as Token[])[0].symbol);
-    //   } catch (error) {
-    //     setTokenList([]);
-    //     setWalletBalances({});
-    //     toast({
-    //       title: "Error",
-    //       description: "Failed to fetch token list or balances.",
-    //       variant: "destructive",
-    //     });
-    //     console.error("Error fetching token data", error);
-    //   }
-    // };
+    loadData(true);
+  }, [isOpen, walletAddress, chainId]);
 
-    // loadData();
-  }, [isOpen]);
+  // Set up periodic polling for real-time data
+  useEffect(() => {
+    if (!isOpen || !walletAddress) return;
+
+    // Refresh data every 30 seconds
+    refreshIntervalRef.current = setInterval(() => {
+      setIsRefreshing(true);
+      loadData(false).finally(() => {
+        setIsRefreshing(false);
+      });
+    }, 30000);
+
+    // Cleanup interval on unmount
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [isOpen, walletAddress, chainId]);
+
+  // Manual refresh function
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadData(false);
+    setIsRefreshing(false);
+  };
 
   const selectedTokenData = tokenList.find(t => t.symbol === selectedToken);
   const balanceData = selectedTokenData ? walletBalances[selectedTokenData.address] : null;
@@ -102,7 +128,7 @@ export const TipModal = ({ isOpen, onClose, creator, content }: TipModalProps) =
     : 0;
 
   const usdValue = selectedTokenData
-    ? (parseFloat(amount || "0") * parseFloat(selectedTokenData.price)).toFixed(2)
+    ? (parseFloat(amount || "0") * selectedTokenData.price).toFixed(2)
     : "0.00";
 
   const earlyBonus = Math.max(1, 24 - parseInt(content.timeRemaining.split('h')[0] || "0")) * 0.1;
@@ -132,9 +158,20 @@ export const TipModal = ({ isOpen, onClose, creator, content }: TipModalProps) =
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="glass-strong border-border/30 max-w-md">
         <DialogHeader>
-          <DialogTitle className="gradient-text text-xl">
-            Tip @{creator.username}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="gradient-text text-xl">
+              Tip @{creator.username}
+            </DialogTitle>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="ml-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -284,4 +321,3 @@ export const TipModal = ({ isOpen, onClose, creator, content }: TipModalProps) =
       </DialogContent>
     </Dialog>
   );
-};
