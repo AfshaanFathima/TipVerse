@@ -1,73 +1,90 @@
-# Welcome to your Lovable project
+# 💡 TipVerse
 
-## Project info
+**TipVerse** is a Web3 tipping protocol that fuses **DeFi mechanics**, **social engagement**, and **prediction rewards** into a gamified creator economy. It allows fans to tip creators using any token, auto-swapped via 1inch Fusion+, while competing to predict viral content and earn rewards.
 
-**URL**: https://lovable.dev/projects/04bca7ad-7100-4cba-90dc-523ad3fb2569
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 🚀 Why TipVerse?
 
-**Use Lovable**
+Creators struggle with monetization. Fans lack incentive to support early. TipVerse changes that by making **every tip a prediction**, and **every post an opportunity** to win.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/04bca7ad-7100-4cba-90dc-523ad3fb2569) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🧠 Core Idea
 
-**Use your preferred IDE**
+> Tip in any token → Swapped to creator's preferred token via 1inch → Earn XP based on timing → Compete in battles → Get rewards.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🌟 Key Features
 
-Follow these steps:
+### 1. Content & Tipping System
+- Creators post content (images, videos, blogs).
+- Tipping window open for 24 hours.
+- Tippers can use *any* token → swapped using **1inch Fusion+** to creator's accepted token.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 2. Fusion+ Swap Integration
+- Gasless, MEV-protected swaps.
+- Seamless UX: no token compatibility issues.
+- Built using 1inch Fusion+ & Limit Order API.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 3. XP & Leaderboard
+- Tippers earn XP based on *how early* they tipped.
+- Public leaderboard promotes top predictors.
 
-# Step 3: Install the necessary dependencies.
-npm i
+### 4. Tippers’ Battle
+- Top XP holders battle based on who predicted viral content.
+- Winners earn:
+  - Share of the tipping pool
+  - NFT badges, mystery boxes, etc.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### 5. Creator Battle
+- Top creators enter a final promotion round.
+- Winner receives Top Creator Badge + Bonus Tip Boost.
+
+### 6. Limit Order Price Protection
+- Creator tokens automatically protected against price drops via 1inch Limit Orders.
+
+### 7. NFT-Based Reputation System
+- NFT badges for achievements: Early Tipper, Viral Predictor, Top Creator, etc.
+
+### 8. Mystery Boxes
+- Surprise XP, NFT drops, boost multipliers, and access passes.
+
+---
+
+## 🧱 Tech Stack
+
+| Layer          | Tech                         |
+|----------------|------------------------------|
+| Frontend       | Vite + React + TypeScript    |
+| Auth           | Firebase Google Auth         |
+| Wallet Connect | RainbowKit + Wagmi + Ethers  |
+| Backend        | Node.js / Firebase (planned) |
+| APIs Used      | 1inch Fusion+, Limit Order, Wallet Balances, Portfolio, Token Prices |
+| Blockchain     | EVM-compatible (Polygon, Base, etc.) |
+| NFTs           | ERC-721 / dynamic metadata (planned) |
+
+---
+
+## 🔌 1inch API Integrations
+
+- **Fusion+ Swap API** — Token swaps via limit orders  
+- **Limit Order Protocol** — Price protection for tipped tokens  
+- **Wallet Balances API** — Display user balances in tipping modal  
+- **Portfolio API** — Creator earnings and tipper profiles  
+- **Token Metadata & Price API** — Token info, estimated USD values  
+- **Transaction Gateway API** — Submit signed transactions  
+- **History API** (planned) — Tip history and leaderboard validation
+
+---
+
+## 📦 Setup & Run Locally
+
+```bash
+git clone https://github.com/yourusername/tipverse.git
+cd tipverse
+npm install
 npm run dev
-```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/04bca7ad-7100-4cba-90dc-523ad3fb2569) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
