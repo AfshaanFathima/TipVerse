@@ -62,9 +62,14 @@ export const Header = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <span className="text-primary-foreground font-bold text-lg">T</span>
-                </div>
+                  <img
+                    src="/logo.png"
+                    alt="logo"
+                    width={40}
+                    height={40}
+                    style={{ objectFit: "contain" }}
+                    onError={e => { e.currentTarget.style.display = "none"; }}
+                  />
                 <span className="text-xl font-bold gradient-text">Tipverse</span>
               </div>
               {/* Desktop Navigation */}
