@@ -1,18 +1,23 @@
-import { useState } from "react";
-import { Upload, Image, Type, DollarSign, Clock, BarChart3, Eye } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { auth } from "@/lib/firebase"; // adjust path if needed
+import { addDoc, collection, getFirestore, Timestamp } from "firebase/firestore";
+import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
+import { BarChart3, Clock, DollarSign, Eye, Image, Type, Upload } from "lucide-react";
+import { useState } from "react";
 
 export const Create = () => {
   const [contentType, setContentType] = useState("text");
   const [postText, setPostText] = useState("");
   const [selectedToken, setSelectedToken] = useState("USDC");
-  const [minTip, setMinTip] = useState("0.01");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const tokens = [
     { symbol: "USDC", name: "USD Coin", balance: "1,250.00" },
@@ -27,231 +32,130 @@ export const Create = () => {
     estimatedEarnings: "$441"
   };
 
+  // Handle image selection
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setImageFile(e.target.files[0]);
+    }
+  };
+
+  // Publish post to Firebase
+  const handlePublish = async () => {
+    setLoading(true);
+    try {
+      let uploadedImageUrl = null;
+      if (contentType === "image" && imageFile) {
+        const storage = getStorage();
+        const storageRef = ref(storage, `posts/${Date.now()}_${imageFile.name}`);
+        await uploadBytes(storageRef, imageFile);
+        uploadedImageUrl = await getDownloadURL(storageRef);
+        setImageUrl(uploadedImageUrl);
+      }
+      const db = getFirestore();
+      await addDoc(collection(db, "posts"), {
+        content: postText,
+        type: contentType,
+        token: selectedToken,
+        imageUrl: uploadedImageUrl,
+        createdAt: Timestamp.now(),
+        userId: auth.currentUser?.uid || null,
+      });
+      setPostText("");
+      setImageFile(null);
+      setImageUrl(null);
+      alert("Post published!");
+    } catch (err) {
+      alert("Failed to publish post.");
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6">
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="container mx-auto max-w-4xl px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center shadow">
               <Upload className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold gradient-text">Content Management</h1>
-              <p className="text-muted-foreground">Create, manage, and analyze your content performance</p>
+              <h1 className="text-3xl font-extrabold gradient-text">Content Management</h1>
+              <p className="text-muted-foreground text-sm">Create, manage, and analyze your content performance</p>
             </div>
           </div>
-
-          {/* Quick Stats */}
-          <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            <div className="flex items-center space-x-2">
-              <BarChart3 className="h-4 w-4" />
-              <span>Analytics</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Eye className="h-4 w-4" />
-              <span>Drafts</span>
-            </div>
-          </div>
+          {/* Removed Quick Stats */}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Main Content Creation */}
-          <div className="flex-1 space-y-6">
-            {/* Content Type Selector */}
-            <Card className="glass-strong border-border/20">
-              <CardHeader>
-                <CardTitle>Create New Post</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Content Type Tabs */}
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant={contentType === "text" ? "default" : "outline"}
-                    onClick={() => setContentType("text")}
-                    className="flex items-center space-x-2"
-                  >
-                    <Type className="h-4 w-4" />
-                    <span>Text</span>
-                  </Button>
-                  <Button
-                    variant={contentType === "image" ? "default" : "outline"}
-                    onClick={() => setContentType("image")}
-                    className="flex items-center space-x-2"
-                  >
-                    <Image className="h-4 w-4" />
-                    <span>Image</span>
-                  </Button>
-                </div>
-
-                {/* Content Input */}
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="content">Content</Label>
-                    <Textarea
-                      id="content"
-                      placeholder="Share your thoughts, insights, or predictions..."
-                      value={postText}
-                      onChange={(e) => setPostText(e.target.value)}
-                      className="min-h-32 bg-secondary/50 border-border/50 resize-none"
-                    />
-                  </div>
-
-                  {contentType === "image" && (
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                      <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Upload Media Files</h3>
-                      <p className="text-muted-foreground mb-4">Drag and drop your images or videos here, or click to browse</p>
-                      <Button className="bg-gradient-primary">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Choose Files
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Supported formats: JPG, PNG, GIF, MP4, MOV<br />
-                        Maximum file size: 50MB per file
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tip Settings */}
-                <div className="space-y-4 border-t border-border pt-6">
-                  <h3 className="text-lg font-semibold text-foreground">Tip Settings</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="token">Preferred Token</Label>
-                      <Select value={selectedToken} onValueChange={setSelectedToken}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {tokens.map((token) => (
-                            <SelectItem key={token.symbol} value={token.symbol}>
-                              <div className="flex items-center space-x-2">
-                                <span className="font-medium">{token.symbol}</span>
-                                <span className="text-muted-foreground">({token.balance})</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="minTip">Minimum Tip</Label>
-                      <Input
-                        id="minTip"
-                        type="number"
-                        value={minTip}
-                        onChange={(e) => setMinTip(e.target.value)}
-                        className="bg-secondary/50 border-border/50"
-                        step="0.01"
-                        min="0.01"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-6 border-t border-border">
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline">
-                      Save Draft
-                    </Button>
-                    <Button variant="outline">
-                      Preview
-                    </Button>
-                  </div>
-                  <Button className="bg-gradient-primary hover:shadow-glow">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Publish Post
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="w-full lg:w-80 space-y-6">
-            {/* Post Preview */}
-            <Card className="glass-strong border-border/20">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Eye className="h-5 w-5 text-primary" />
-                  <span>Post Preview</span>
-                </CardTitle>
-                <div className="flex items-center justify-end space-x-2">
-                  <Button variant="outline" size="sm">Mobile</Button>
-                  <Button variant="ghost" size="sm">Desktop</Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Preview Content */}
-                <div className="border border-border rounded-lg p-4 bg-card">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src="/api/placeholder/32/32" />
-                      <AvatarFallback>AC</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-sm">Alex Chen</span>
-                        <span className="text-primary text-xs">✓</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">@alexcrypto • Just now</span>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm text-foreground mb-3">
-                    {postText || "Your content will appear here..."}
+        {/* Main Content Creation */}
+        <Card className="glass-strong border border-border/30 shadow-xl rounded-2xl p-8">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-bold gradient-text text-center">Create New Post</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row gap-8">
+              {/* Text Input */}
+              <div className="flex-1 flex flex-col h-full">
+                <Label htmlFor="content" className="text-base font-semibold mb-2">Content</Label>
+                <Textarea
+                  id="content"
+                  placeholder="Share your thoughts, insights, or predictions..."
+                  value={postText}
+                  onChange={(e) => setPostText(e.target.value)}
+                  className="h-60 min-h-60 bg-[#f5f7fa] border border-primary/30 rounded-xl resize-none text-black text-base px-4 py-3 shadow focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              {/* Image Upload */}
+              <div className="flex-1 flex flex-col h-full justify-between border-2 border-dashed border-border rounded-xl p-8 bg-white/70">
+                <div className="flex flex-col items-center justify-center h-full">
+                  <Upload className="h-10 w-10 text-primary mb-3" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Upload Media</h3>
+                  <p className="text-muted-foreground mb-3 text-xs">Drag and drop or click to browse</p>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="mb-2"
+                  />
+                  {imageFile && <span className="text-xs text-primary font-medium">{imageFile.name}</span>}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Supported: JPG, PNG, GIF<br />
+                    Max size: 50MB
                   </p>
-                  
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>0 tips • 24h remaining</span>
-                    <span>Min: {minTip} {selectedToken}</span>
-                  </div>
                 </div>
-
-                {/* Predicted Stats */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div>
-                      <div className="flex items-center justify-center space-x-1">
-                        <Eye className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Estimated Reach</span>
-                      </div>
-                      <p className="text-lg font-bold text-foreground">{mockStats.estimatedReach.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-center space-x-1">
-                        <span className="text-xs text-muted-foreground">Viral Potential</span>
-                      </div>
-                      <p className="text-lg font-bold text-success">{mockStats.viralPotential}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div>
-                      <div className="flex items-center justify-center space-x-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Tip Window</span>
-                      </div>
-                      <p className="text-lg font-bold text-warning">{mockStats.tipWindow}</p>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-center space-x-1">
-                        <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Est. Earnings</span>
-                      </div>
-                      <p className="text-lg font-bold text-success">{mockStats.estimatedEarnings}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </div>
+            </div>
+            {/* Tip Settings & Publish */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-border pt-8 mt-8">
+              <div className="flex items-center gap-3">
+                <Label htmlFor="token" className="text-base font-semibold">Preferred Token</Label>
+                <Select value={selectedToken} onValueChange={setSelectedToken}>
+                  <SelectTrigger className="max-w-[120px] border border-primary/30 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tokens.map((token) => (
+                      <SelectItem key={token.symbol} value={token.symbol}>
+                        <div className="flex items-center space-x-1">
+                          <span className="font-medium">{token.symbol}</span>
+                          <span className="text-muted-foreground text-xs">({token.balance})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                className="bg-gradient-primary hover:shadow-glow px-8 py-3 text-base font-semibold rounded-xl"
+                onClick={handlePublish}
+                disabled={loading}
+              >
+                <Upload className="h-5 w-5 mr-2" />
+                {loading ? "Publishing..." : "Publish Post"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

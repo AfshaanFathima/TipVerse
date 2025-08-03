@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DollarSign, Heart, MessageCircle, Share } from "lucide-react";
+import { DollarSign, Heart, Share } from "lucide-react";
 import { useState } from "react";
 
 interface ContentCardProps {
@@ -33,6 +33,14 @@ interface ContentCardProps {
 export const ContentCard = ({ author, content, stats }: ContentCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
+  const [likeCount, setLikeCount] = useState(stats?.tips || 0);
+
+  const handleLike = () => {
+    setIsLiked((prev) => {
+      setLikeCount((count) => prev ? count - 1 : count + 1);
+      return !prev;
+    });
+  };
 
   const viralColors = {
     High: "text-success",
@@ -75,9 +83,9 @@ export const ContentCard = ({ author, content, stats }: ContentCardProps) => {
         {content.image && (
           <div className="mb-4 rounded-lg overflow-hidden">
             <img 
-              src={"/CoverPage.jpg"} // Correct path for public folder
+              src={content.image} // Use the actual image URL from Firestore
               alt="Content"
-              className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300"
+              className="w-full h-80 object-cover hover:scale-105 transition-transform duration-300"
             />
           </div>
         )}
@@ -90,16 +98,13 @@ export const ContentCard = ({ author, content, stats }: ContentCardProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsLiked(!isLiked)}
+              onClick={handleLike}
               className={`${isLiked ? 'text-red-500' : 'text-muted-foreground'} hover:text-red-500`}
             >
               <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-              <span className="text-sm">{isLiked ? 'Liked' : 'Like'}</span>
+              <span className="text-sm">{isLiked ? 'Liked' : 'Like'} ({likeCount})</span>
             </Button>
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-              <MessageCircle className="h-4 w-4 mr-2" />
-              <span className="text-sm">{stats.comments}</span>
-            </Button>
+           
           </div>
 
           <Button 

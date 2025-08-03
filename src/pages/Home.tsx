@@ -1,7 +1,9 @@
-import { Filter, Search, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { collection, getDocs, getFirestore } from "firebase/firestore";
+import { Search, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { auth } from "../lib/firebase";
 // Update the import path if the Card component is located elsewhere, for example:
 import { ContentCard } from "../components/feed/ContentCard";
 import { LeaderboardCard } from "../components/leaderboard/LeaderboardCard";
@@ -42,31 +44,23 @@ const Home = () => {
   //   if (tab === "create") navigate("/create");
   // };
 
-  const mockPosts = [
-    {
-      author: {
-        name: "Alex Chen",
-        username: "alexgamer", 
-        avatar: "/api/placeholder/40/40",
-        verified: true
-      },
-      content: {
-        text: "The Future of Decentralized Gaming: Why Web3 Will Transform How We Play",
-        image: "/api/placeholder/600/300",
-        timestamp: "4h 58m",
-        timeRemaining: "19h 2m"
-      },
-      stats: {
-        tips: 2450,
-        tipAmount: "2,450 USDC",
-        comments: 127,
-        timeRemaining: "24h",
-        viralPotential: "High" as const,
-        estimatedReach: 1250,
-        estimatedEarnings: "$441"
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoadingPosts(true);
+      try {
+        const db = getFirestore();
+        const snap = await getDocs(collection(db, "posts"));
+        setPosts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (err) {
+        setPosts([]);
       }
-    }
-  ];
+      setLoadingPosts(false);
+    };
+    fetchPosts();
+  }, []);
 
   const mockLeaderboard = [
     {
@@ -119,13 +113,6 @@ const Home = () => {
     }
   ];
 
-  const filterTabs = [
-    { id: "hot", label: "Hot", icon: "🔥" },
-    { id: "new", label: "New", icon: "✨" },
-    { id: "following", label: "Following", icon: "👥" },
-    { id: "ending", label: "Ending Soon", icon: "⏰" }
-  ];
-
   return (
     <div className="min-h-screen bg-background">
       {/* <Header
@@ -147,37 +134,59 @@ const Home = () => {
                     placeholder="Search creators, content, or topics..."
                     value={searchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-secondary/50 border-border/50"
+                    className="pl-10 bg-secondary/50 border-border/50 h-14 text-lg"
                   />
                 </div>
-                <Button variant="ghost" size="sm">
-                  <Filter className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="homepage-filters">
-                {filterTabs.map((tab) => (
-                  <Button
-                    key={tab.id}
-                    variant={activeFilter === tab.id ? "default" : "ghost"}
-                    onClick={() => setActiveFilter(tab.id)}
-                    className={`whitespace-nowrap ${
-                      activeFilter === tab.id 
-                        ? "bg-primary text-primary-foreground shadow-glow" 
-                        : "border-border/50 hover:border-border"
-                    }`}
-                  >
-                    <span className="mr-2">{tab.icon}</span>
-                    {tab.label}
-                  </Button>
-                ))}
               </div>
             </div>
 
             {/* Content Feed */}
             <div className="homepage-content-feed">
-              {mockPosts.map((post, index) => (
-                <ContentCard key={index} {...post} />
-              ))}
+              {loadingPosts ? (
+                <div>Loading posts...</div>
+              ) : posts.length === 0 ? (
+                <div className="text-muted-foreground">No posts found.</div>
+              ) : (
+                posts.map((post, index) => {
+                  // Use signed-in user's info for their posts
+                  let name = post.author?.name || "Anonymous";
+                  let username = post.author?.username || "unknown";
+                  let avatar = post.author?.avatar || "/api/placeholder/40/40";
+                  let verified = post.author?.verified ?? false;
+                  if (post.userId && auth.currentUser && post.userId === auth.currentUser.uid) {
+                    name = auth.currentUser.displayName || name;
+                    username = auth.currentUser.displayName ? auth.currentUser.displayName.replace(/\s+/g, "_").toLowerCase() : username;
+                    avatar = auth.currentUser.photoURL || avatar;
+                    verified = true;
+                  }
+                  // Only show image if post.type === "image" and imageUrl exists
+                  const image = post.type === "image" && post.imageUrl ? post.imageUrl : "";
+                  const safePost = {
+                    author: {
+                      name,
+                      username,
+                      avatar,
+                      verified,
+                    },
+                    content: {
+                      text: post.content || post.text || "No content",
+                      image,
+                      timestamp: post.createdAt?.seconds ? new Date(post.createdAt.seconds * 1000).toLocaleString() : "",
+                      timeRemaining: post.timeRemaining || "24h"
+                    },
+                    stats: {
+                      tips: post.tips || 0,
+                      tipAmount: post.tipAmount || "0 USDC",
+                      comments: post.comments || 0,
+                      timeRemaining: post.timeRemaining || "24h",
+                      viralPotential: post.viralPotential || "Normal",
+                      estimatedReach: post.estimatedReach || 0,
+                      estimatedEarnings: post.estimatedEarnings || "$0"
+                    }
+                  };
+                  return <ContentCard key={post.id || index} {...safePost} />;
+                })
+              )}
             </div>
           </div>
 
@@ -206,25 +215,7 @@ const Home = () => {
             </Card>
 
             {/* Quick Actions */}
-            <Card className="homepage-card homepage-quick-actions glass-strong border-border/20">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full bg-gradient-primary hover:shadow-glow">
-                  <span className="mr-2">➕</span>
-                  Create Post
-                </Button>
-                <Button variant="ghost" className="w-full border-border/50">
-                  <span className="mr-2">⚔️</span>
-                  View Battles
-                </Button>
-                <Button variant="ghost" className="w-full border-border/50">
-                  <span className="mr-2">👤</span>
-                  My Profile
-                </Button>
-              </CardContent>
-            </Card>
+            
           </div>
         </div>
       </div>
