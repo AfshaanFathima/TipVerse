@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { Sword, Trophy, Users, DollarSign, Gift } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { DollarSign, Gift, Sword, Trophy } from "lucide-react";
+import { useState } from "react";
 
 interface Tipper {
   name: string;
@@ -17,6 +17,28 @@ interface Tipper {
 }
 
 export const Battles = () => {
+  // Creator Battle countdown logic
+  const CREATOR_BATTLE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in ms
+  // For demo, set battle start to now + 2 hours
+  const [battleStart] = useState(Date.now() + 2 * 60 * 60 * 1000);
+  const [timeLeft, setTimeLeft] = useState(battleStart - Date.now());
+
+  // Update countdown every second
+  useState(() => {
+    const interval = setInterval(() => {
+      setTimeLeft(Math.max(battleStart - Date.now(), 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  });
+
+  // Format time left as HH:MM:SS
+  function formatTime(ms: number) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }
   const [selectedBattle, setSelectedBattle] = useState("tippers");
 
   // Mock data for Tippers' Battle
@@ -27,33 +49,20 @@ export const Battles = () => {
     { name: "PredictorX", xp: 48000, tips: 80, viralTips: 8, streak: 10, tier: "Silver", avatar: "/api/placeholder/40/40" }
   ];
 
-  // Mock data for Creator Battle
-  const creatorBattlePosts = [
-    {
-      id: 1,
-      creator: { name: "ContentKing", avatar: "/api/placeholder/40/40" },
-      title: "Will ETH break $4000 this week?",
-      tips: 120,
-      viral: true,
-      badge: "Top Creator"
-    },
-    {
-      id: 2,
-      creator: { name: "ViralMaster", avatar: "/api/placeholder/40/40" },
-      title: "Solana NFTs: Next Big Thing?",
-      tips: 98,
-      viral: false,
-      badge: ""
-    },
-    {
-      id: 3,
-      creator: { name: "CreatorPro", avatar: "/api/placeholder/40/40" },
-      title: "DeFi Summer 2.0 Incoming?",
-      tips: 85,
-      viral: false,
-      badge: ""
-    }
-  ];
+  // Use top tippers for creator battle posts
+  const creatorBattlePosts = tippersLeaderboard.slice(0, 3).map((tipper, idx) => ({
+    id: idx + 1,
+    creator: { name: tipper.name, avatar: tipper.avatar },
+    title:
+      idx === 0
+        ? "Will ETH break $4000 this week?"
+        : idx === 1
+        ? "Solana NFTs: Next Big Thing?"
+        : "DeFi Summer 2.0 Incoming?",
+    tips: tipper.tips,
+    viral: idx === 0,
+    badge: idx === 0 ? "Top Creator" : ""
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -98,9 +107,16 @@ export const Battles = () => {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 flex items-center gap-4">
-                <DollarSign className="h-5 w-5 text-success" />
-                <span className="font-semibold text-success">Prize Pool: $1,500 + Mystery Boxes*</span>
+              {/* Rewards Info Box */}
+              <div className="mb-6">
+                <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 flex items-center gap-3 shadow-sm">
+                  <Trophy className="h-6 w-6 text-primary" />
+                  <span className="font-semibold text-primary text-lg">Top 2 tippers will get rewards from the prize pool every 24 hours!</span>
+                </div>
+              </div>
+              <div className="mb-5 flex items-center gap-4">
+                <DollarSign className="h-5 w-10   text-success" />
+                <span className="font-semibold text-success">Prize Pool: $1,500 + Mystery Boxes</span>
                 <Gift className="h-5 w-5 text-warning" />
                 <span className="text-xs text-muted-foreground">Mystery Boxes may contain rare NFTs, badges, or bonus XP</span>
               </div>
@@ -149,6 +165,13 @@ export const Battles = () => {
               </p>
             </CardHeader>
             <CardContent>
+              {/* Countdown Box */}
+              <div className="mb-6">
+                <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-center gap-3 shadow-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
+                  <span className="font-semibold text-warning text-lg">Battle starts in: <span className="font-mono">{formatTime(timeLeft)}</span></span>
+                </div>
+              </div>
               <div className="mb-4 flex items-center gap-4">
                 <DollarSign className="h-5 w-5 text-success" />
                 <span className="font-semibold text-success">Bonus Reward: Higher share of tipping pool</span>

@@ -44,7 +44,7 @@ export const Create = () => {
     setLoading(true);
     try {
       let uploadedImageUrl = null;
-      if (contentType === "image" && imageFile) {
+      if (imageFile) { // Always upload if imageFile is present
         const storage = getStorage();
         const storageRef = ref(storage, `posts/${Date.now()}_${imageFile.name}`);
         await uploadBytes(storageRef, imageFile);
@@ -52,13 +52,32 @@ export const Create = () => {
         setImageUrl(uploadedImageUrl);
       }
       const db = getFirestore();
+      const user = auth.currentUser;
+      const author = user
+        ? {
+            name: user.displayName || "User",
+            username: user.displayName
+              ? user.displayName.replace(/\s+/g, "_").toLowerCase()
+              : "user",
+            avatar: user.photoURL || "/api/placeholder/40/40",
+            verified: true,
+            uid: user.uid,
+          }
+        : {
+            name: "User",
+            username: "user",
+            avatar: "/api/placeholder/40/40",
+            verified: false,
+            uid: "",
+          };
       await addDoc(collection(db, "posts"), {
         content: postText,
         type: contentType,
         token: selectedToken,
         imageUrl: uploadedImageUrl,
         createdAt: Timestamp.now(),
-        userId: auth.currentUser?.uid || null,
+        userId: user?.uid || null,
+        author,
       });
       setPostText("");
       setImageFile(null);

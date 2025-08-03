@@ -35,9 +35,16 @@ export const Header = () => {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      setPhotoURL(user?.photoURL ?? undefined);
+      if (user) {
+        // Prefer Google profile picture if available
+        const googleProvider = user.providerData.find((p) => p.providerId === "google.com");
+        setPhotoURL(googleProvider?.photoURL || user.photoURL || undefined);
+      } else {
+        setPhotoURL(undefined);
+      }
     });
-
+    
+    
     async function getWalletInfo() {
       if (window.ethereum) {
         try {
@@ -55,6 +62,19 @@ export const Header = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // Refresh photoURL when dropdown is opened
+  useEffect(() => {
+    if (showDropdown) {
+      const user = auth.currentUser;
+      if (user) {
+        const googleProvider = user.providerData.find((p) => p.providerId === "google.com");
+        setPhotoURL(googleProvider?.photoURL || user.photoURL || undefined);
+      } else {
+        setPhotoURL(undefined);
+      }
+    }
+  }, [showDropdown]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);

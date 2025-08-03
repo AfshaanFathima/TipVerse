@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { auth } from "../lib/firebase";
+import { getAuth } from "firebase/auth";
 // Update the import path if the Card component is located elsewhere, for example:
 import { ContentCard } from "../components/feed/ContentCard";
 import { LeaderboardCard } from "../components/leaderboard/LeaderboardCard";
@@ -19,6 +20,13 @@ declare global {
       'appkit-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
     }
   }
+}
+
+// Helper to fetch user info from Firebase Auth REST API (client-side only, not recommended for production)
+async function fetchFirebaseUser(uid: string): Promise<{ displayName: string; photoURL: string | null } | null> {
+  // You must have the user's ID token or use a backend for secure access in production.
+  // For demo/mock, this will always return null.
+  return null;
 }
 
 const Home = () => {
@@ -46,6 +54,7 @@ const Home = () => {
 
   const [posts, setPosts] = useState<any[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [userMap, setUserMap] = useState<Record<string, { displayName: string; photoURL: string | null }>>({});
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -60,6 +69,28 @@ const Home = () => {
       setLoadingPosts(false);
     };
     fetchPosts();
+  }, []);
+
+  // Fetch all users' display names for posts from Firestore "users" collection (recommended)
+  useEffect(() => {
+    const fetchUserNames = async () => {
+      try {
+        const db = getFirestore();
+        const snap = await getDocs(collection(db, "users"));
+        const map: Record<string, { displayName: string; photoURL: string | null }> = {};
+        snap.forEach(doc => {
+          const data = doc.data();
+          map[doc.id] = {
+            displayName: data.displayName || "User",
+            photoURL: data.photoURL || "/api/placeholder/40/40"
+          };
+        });
+        setUserMap(map);
+      } catch (err) {
+        // fallback: do nothing
+      }
+    };
+    fetchUserNames();
   }, []);
 
   const mockLeaderboard = [
@@ -147,45 +178,52 @@ const Home = () => {
               ) : posts.length === 0 ? (
                 <div className="text-muted-foreground">No posts found.</div>
               ) : (
-                posts.map((post, index) => {
-                  // Use signed-in user's info for their posts
-                  let name = post.author?.name || "Anonymous";
-                  let username = post.author?.username || "unknown";
-                  let avatar = post.author?.avatar || "/api/placeholder/40/40";
-                  let verified = post.author?.verified ?? false;
-                  if (post.userId && auth.currentUser && post.userId === auth.currentUser.uid) {
-                    name = auth.currentUser.displayName || name;
-                    username = auth.currentUser.displayName ? auth.currentUser.displayName.replace(/\s+/g, "_").toLowerCase() : username;
-                    avatar = auth.currentUser.photoURL || avatar;
-                    verified = true;
-                  }
-                  // Only show image if post.type === "image" and imageUrl exists
-                  const image = post.type === "image" && post.imageUrl ? post.imageUrl : "";
-                  const safePost = {
-                    author: {
-                      name,
-                      username,
-                      avatar,
-                      verified,
-                    },
-                    content: {
-                      text: post.content || post.text || "No content",
-                      image,
-                      timestamp: post.createdAt?.seconds ? new Date(post.createdAt.seconds * 1000).toLocaleString() : "",
-                      timeRemaining: post.timeRemaining || "24h"
-                    },
-                    stats: {
-                      tips: post.tips || 0,
-                      tipAmount: post.tipAmount || "0 USDC",
-                      comments: post.comments || 0,
-                      timeRemaining: post.timeRemaining || "24h",
-                      viralPotential: post.viralPotential || "Normal",
-                      estimatedReach: post.estimatedReach || 0,
-                      estimatedEarnings: post.estimatedEarnings || "$0"
+                posts
+                  .filter(post => !(post.userId && auth.currentUser && post.userId === auth.currentUser.uid))
+                  .map((post, index) => {
+                    // Use name and avatar directly from the post if present
+                    let name = post.name || post.author?.name || "User";
+                    let username = post.username || post.author?.username || "user";
+                    let avatar = post.avatar || post.author?.avatar || "/api/placeholder/40/40";
+                    let verified = post.verified ?? post.author?.verified ?? false;
+
+                    // Fallback to userMap if author is missing (for legacy posts)
+                    if ((!post.name && !post.avatar) && post.userId && userMap[post.userId]) {
+                      name = userMap[post.userId].displayName || "User";
+                      username = userMap[post.userId].displayName
+                        ? userMap[post.userId].displayName.replace(/\s+/g, "_").toLowerCase()
+                        : "user";
+                      avatar = userMap[post.userId].photoURL || "/api/placeholder/40/40";
+                      verified = true;
                     }
-                  };
-                  return <ContentCard key={post.id || index} {...safePost} />;
-                })
+
+                    // Always show image if imageUrl exists (regardless of post.type)
+                    const image = post.imageUrl ? post.imageUrl : "";
+                    const safePost = {
+                      author: {
+                        name,
+                        username,
+                        avatar,
+                        verified,
+                      },
+                      content: {
+                        text: post.content || post.text || "No content",
+                        image,
+                        timestamp: post.createdAt?.seconds ? new Date(post.createdAt.seconds * 1000).toLocaleString() : "",
+                        timeRemaining: post.timeRemaining || "24h"
+                      },
+                      stats: {
+                        tips: post.tips || 0,
+                        tipAmount: post.tipAmount || "0 USDC",
+                        comments: post.comments || 0,
+                        timeRemaining: post.timeRemaining || "24h",
+                        viralPotential: post.viralPotential || "Normal",
+                        estimatedReach: post.estimatedReach || 0,
+                        estimatedEarnings: post.estimatedEarnings || "$0"
+                      }
+                    };
+                    return <ContentCard key={post.id || index} {...safePost} />;
+                  })
               )}
             </div>
           </div>
@@ -223,3 +261,68 @@ const Home = () => {
   );
 }
 export default Home;
+
+// --- HOW TO ENSURE AUTHOR NAME/AVATAR SHOWS FOR EACH POST ---
+//
+// 1. On user signup/login, write the user's displayName and photoURL to Firestore "users" collection.
+//    The document ID should be the user's UID from Firebase Auth.
+//
+// Example (call this after signup/login):
+//
+// import { setDoc, doc, getFirestore } from "firebase/firestore";
+// import { auth } from "../lib/firebase";
+//
+// async function syncUserToFirestore() {
+//   const user = auth.currentUser;
+//   if (user) {
+//     const db = getFirestore();
+//     await setDoc(doc(db, "users", user.uid), {
+//       displayName: user.displayName || "User",
+//       photoURL: user.photoURL || "/api/placeholder/40/40"
+//     }, { merge: true });
+//   }
+// }
+//
+// 2. When creating a post, always store the user's UID as userId in the post.
+//
+// Example (in your create post logic):
+//
+// await addDoc(collection(db, "posts"), {
+//   ...otherPostFields,
+//   userId: auth.currentUser?.uid,
+// });
+//
+// 3. The code in this file will then correctly map userId to displayName and photoURL for every post.
+//
+// --- END INSTRUCTIONS ---
+// --- YES, you should update your login/signup logic ---
+// After a user logs in or signs up, always write/update their displayName and photoURL to Firestore "users" collection.
+// This ensures the mapping is always available for the Home feed and other features.
+
+// Example (call this after successful login/signup):
+// import { setDoc, doc, getFirestore } from "firebase/firestore";
+// import { auth } from "../lib/firebase";
+//
+// async function syncUserToFirestore() {
+//   const user = auth.currentUser;
+//   if (user) {
+//     const db = getFirestore();
+//     await setDoc(doc(db, "users", user.uid), {
+//       displayName: user.displayName || "User",
+//       photoURL: user.photoURL || "/api/placeholder/40/40"
+//     }, { merge: true });
+//   }
+// }
+//
+// Call syncUserToFirestore() after login/signup to keep user info in sync.
+//   const user = auth.currentUser;
+//   if (user) {
+//     const db = getFirestore();
+//     await setDoc(doc(db, "users", user.uid), {
+//       displayName: user.displayName || "User",
+//       photoURL: user.photoURL || "/api/placeholder/40/40"
+//     }, { merge: true });
+//   }
+// }
+//
+// Call syncUserToFirestore() after login/signup to keep user info in sync.

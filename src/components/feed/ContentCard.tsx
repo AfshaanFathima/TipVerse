@@ -48,6 +48,11 @@ export const ContentCard = ({ author, content, stats }: ContentCardProps) => {
     Low: "text-muted-foreground"
   };
 
+  // Fallbacks for missing author info
+  const displayName = author.name && author.name.trim() ? author.name : "Unknown User";
+  const displayAvatar = author.avatar && author.avatar.trim() ? author.avatar : "/default-avatar.png";
+  const displayUsername = author.username && author.username.trim() ? author.username : "unknown";
+
   return (
     <Card className="glass-strong border-border/20 hover:border-border/40 transition-all duration-300 group">
       <CardContent className="p-6">
@@ -55,19 +60,19 @@ export const ContentCard = ({ author, content, stats }: ContentCardProps) => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12 ring-2 ring-primary/20">
-              <AvatarImage src={author.avatar} />
-              <AvatarFallback>{author.name.charAt(0)}</AvatarFallback>
+              <AvatarImage src={displayAvatar} />
+              <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="font-semibold text-foreground">{author.name}</h3>
+                <h3 className="font-semibold text-foreground">{displayName}</h3>
                 {author.verified && (
                   <Badge variant="secondary" className="bg-primary/10 text-primary">
                     ✓
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">@{author.username} • {content.timestamp}</p>
+              <p className="text-sm text-muted-foreground">@{displayUsername} • {content.timestamp}</p>
             </div>
           </div>
           <Button variant="ghost" size="icon">

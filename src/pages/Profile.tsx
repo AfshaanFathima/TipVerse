@@ -1,12 +1,13 @@
-import { auth } from "@/lib/firebase";
 import { collection, getDocs, getFirestore, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
+import { auth } from "../lib/firebase";
+
 
 export const Profile = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const user = auth.currentUser;
-
+  
   useEffect(() => {
     const fetchPosts = async () => {
       setLoadingPosts(true);
@@ -48,20 +49,34 @@ export const Profile = () => {
           ) : posts.length === 0 ? (
             <div className="text-muted-foreground">No posts yet.</div>
           ) : (
-            <ul className="space-y-4">
-              {posts.map(post => (
-                <li key={post.id} className="p-4 border rounded bg-background">
-                  {post.imageUrl && (
-                    <img src={post.imageUrl} alt="Post" className="w-full h-84 object-cover rounded mb-2" />
-                  )}
-                  <div className="text-foreground text-lg mb-2">{post.content}</div>
-                  <div className="text-xs text-muted-foreground">{post.createdAt?.seconds ? new Date(post.createdAt.seconds * 1000).toLocaleString() : ""}</div>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-6">
+              {posts.map((post, index) => {
+                const image = post.imageUrl || "";
+                return (
+                  <div key={post.id || index} className="p-0">
+                    <div className="glass-strong border border-border/20 rounded-lg p-5 shadow-md">
+                      {image && (
+                        <img
+                          src={image}
+                          alt="Content"
+                          className="w-full h-96 object-cover rounded mb-4 mx-auto hover:scale-105 transition-transform duration-300"
+                          onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = "/api/placeholder/600/400"; }}
+                        />
+                      )}
+                      <div className="text-foreground text-lg mb-2">{post.content || post.text || "No content"}</div>
+                      <div className="flex items-center gap-6 text-sm mt-2">
+                        <span className="text-muted-foreground">Likes: {post.tips || 0}</span>
+                        <span className="text-muted-foreground">Tips: {post.tipAmount || "0"} {post.tokenName || "USDC"}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 };
+
